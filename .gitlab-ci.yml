@@ -1,0 +1,40 @@
+stages:
+  - build-texlive
+  - generate-cv
+
+variables:
+  TEXLIVE_IMAGE: "${CI_REGISTRY_IMAGE}/texlive:latest"
+
+before_script:
+  - echo -n "${CI_JOB_TOKEN}" | docker login -u gitlab-ci-token --password-stdin "${CI_REGISTRY}"
+
+build-texlive:
+  stage: build-texlive
+  variables:
+    DOCKER_VERSION: 19.03.2
+  services:
+    - docker:${DOCKER_VERSION}-dind
+  image: docker:${DOCKER_VERSION}
+  rules:
+    - changes:
+        - devops/docker/dockerfiles/texlive/Dockerfile
+      when: always
+  script:
+    - docker build --pull -t ${TEXLIVE_IMAGE} devops/docker/dockerfiles/texlive
+    - docker push ${TEXLIVE_IMAGE}
+
+generate-cv:
+  stage: generate-cv
+  image:
+    name: ${TEXLIVE_IMAGE}
+  rules:
+    - changes:
+        - cvs/*
+      when: on_success
+  before_script:
+    - cd cvs/charde
+  script:
+    - xelatex cv.tex
+  artifacts:
+    paths:
+      - cvs/charde/cv.pdf
